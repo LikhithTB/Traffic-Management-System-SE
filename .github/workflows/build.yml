@@ -1,0 +1,9 @@
+   name: Build
+   on: [push, pull_request]
+   jobs:
+     build:
+       runs-on: ubuntu-22.04
+       steps:
+         - uses: actions/checkout@v4
+         - name: Compile
+           run: g++ -Wall -Wextra -std=c++17 -o tms src/*.cpp
