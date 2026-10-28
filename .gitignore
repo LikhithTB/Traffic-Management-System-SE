@@ -1,0 +1,15 @@
+# build output
+tms
+tms.exe
+*.o
+*.obj
+# runtime data (never commit credentials or logs)
+users.dat
+audit.log
+config.ini
+reports/
+# editors / OS
+.vscode/
+.vs/
+*.swp
+.DS_Store
