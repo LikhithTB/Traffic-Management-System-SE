@@ -13,3 +13,6 @@ reports/
 .vs/
 *.swp
 .DS_Store
+tms_tests
+tms_tests.exe
+test_audit_*.log
