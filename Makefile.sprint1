@@ -1,0 +1,21 @@
+CXX      ?= g++
+CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -O2 -Iinclude
+SRCS      = src/file_store.cpp src/password.cpp src/user_store.cpp src/auth.cpp
+TEST      = tests/test_sprint1.cpp
+
+.PHONY: test asan clean
+test: build/tests
+	./build/tests
+
+build/tests: $(SRCS) $(TEST) $(wildcard include/*.hpp)
+	mkdir -p build
+	$(CXX) $(CXXFLAGS) $(SRCS) $(TEST) -o $@
+
+# Memory/UB check (useful groundwork for the Sprint 2 ASan/Valgrind issue)
+asan:
+	mkdir -p build
+	$(CXX) -std=c++17 -g -O1 -Wall -Wextra -Iinclude -fsanitize=address,undefined $(SRCS) $(TEST) -o build/tests_asan
+	./build/tests_asan
+
+clean:
+	rm -rf build
