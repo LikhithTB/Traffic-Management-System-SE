@@ -1,5 +1,5 @@
 CXX      ?= g++
-CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -O2 -Iinclude
+CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -O2 -Isrc
 SRCS      = src/file_store.cpp src/password.cpp src/user_store.cpp src/auth.cpp
 TEST      = tests/test_sprint1.cpp
 
@@ -14,7 +14,7 @@ build/tests: $(SRCS) $(TEST) $(wildcard include/*.hpp)
 # Memory/UB check (useful groundwork for the Sprint 2 ASan/Valgrind issue)
 asan:
 	mkdir -p build
-	$(CXX) -std=c++17 -g -O1 -Wall -Wextra -Iinclude -fsanitize=address,undefined $(SRCS) $(TEST) -o build/tests_asan
+	$(CXX) -std=c++17 -g -O1 -Wall -Wextra -Isrc -fsanitize=address,undefined $(SRCS) $(TEST) -o build/tests_asan
 	./build/tests_asan
 
 clean:
