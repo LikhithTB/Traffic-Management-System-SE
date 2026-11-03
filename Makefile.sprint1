@@ -1,7 +1,7 @@
 CXX      ?= g++
 CXXFLAGS ?= -std=c++17 -Wall -Wextra -Wpedantic -O2 -Isrc
 SRCS      = src/file_store.cpp src/password.cpp src/user_store.cpp src/auth.cpp
-TEST      = tests/test_sprint1.cpp
+TEST      = sprint1_tests/test_sprint1.cpp
 
 .PHONY: test asan clean
 test: build/tests
