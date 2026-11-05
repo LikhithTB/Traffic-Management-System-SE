@@ -9,7 +9,8 @@ namespace tms {
 
 class FileStore {
  public:
-  explicit FileStore(std::string path);
+  // ownerOnly: files are made readable/writable by the owner only (0600 on Linux) - use for users.dat.
+  explicit FileStore(std::string path, bool ownerOnly = false);
   const std::string& path() const { return path_; }
   bool exists() const;
   Result<std::vector<std::string>> readLines() const;                 // skips blank lines
@@ -19,6 +20,7 @@ class FileStore {
 
  private:
   std::string path_;
+  bool ownerOnly_ = false;
 };
 
 }  // namespace tms

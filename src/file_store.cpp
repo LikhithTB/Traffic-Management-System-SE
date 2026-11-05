@@ -7,7 +7,14 @@ namespace fs = std::filesystem;
 
 namespace tms {
 
-FileStore::FileStore(std::string path) : path_(std::move(path)) {}
+FileStore::FileStore(std::string path, bool ownerOnly) : path_(std::move(path)), ownerOnly_(ownerOnly) {}
+
+namespace {
+void restrictToOwner(const fs::path& p) {
+  std::error_code ec;
+  fs::permissions(p, fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::replace, ec);
+}
+}  // namespace
 
 bool FileStore::exists() const {
   std::error_code ec;
@@ -43,6 +50,7 @@ Result<void> FileStore::writeLines(const std::vector<std::string>& lines) const 
       return Result<void>::Err(ErrorCode::IoError, "write failed: " + tmp);
     }
   }
+  if (ownerOnly_) restrictToOwner(tmp);   // set before the file takes the real name
   fs::rename(tmp, path_, ec);
   if (ec) {
     fs::remove(tmp, ec);
@@ -55,6 +63,10 @@ Result<void> FileStore::appendLine(const std::string& line) const {
   std::error_code ec;
   fs::path target(path_);
   if (target.has_parent_path()) fs::create_directories(target.parent_path(), ec);
+  if (ownerOnly_ && !fs::exists(path_, ec)) {
+    std::ofstream create(path_);
+    if (create) restrictToOwner(path_);
+  }
   std::ofstream out(path_, std::ios::app);
   if (!out) return Result<void>::Err(ErrorCode::IoError, "cannot append " + path_);
   out << line << '\n';
