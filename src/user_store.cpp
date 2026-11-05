@@ -17,13 +17,26 @@ std::vector<std::string> split(const std::string& s, char sep) {
 }
 
 bool validUsername(const std::string& u) {
-  if (u.size() < 3 || u.size() > 32) return false;
+  if (u.size() < 4 || u.size() > 20) return false;   // FR-07: 4-20 characters
   for (unsigned char c : u)
     if (!(std::isalnum(c) || c == '_' || c == '.' || c == '-')) return false;
   return true;
 }
 
-constexpr std::size_t kMinPasswordLength = 8;
+// SEC-02: 8-256 characters with at least one letter and one digit.
+Result<void> checkPassword(const std::string& pw) {
+  if (pw.size() < 8)
+    return Result<void>::Err(ErrorCode::WeakPassword, "password must be at least 8 characters with a letter and a digit");
+  if (pw.size() > 256) return Result<void>::Err(ErrorCode::WeakPassword, "password must be at most 256 characters");
+  bool letter = false, digit = false;
+  for (unsigned char c : pw) {
+    if (std::isalpha(c)) letter = true;
+    if (std::isdigit(c)) digit = true;
+  }
+  if (!letter || !digit)
+    return Result<void>::Err(ErrorCode::WeakPassword, "password must be at least 8 characters with a letter and a digit");
+  return Result<void>::Ok();
+}
 
 }  // namespace
 
@@ -87,9 +100,9 @@ Result<void> UserStore::save() const {
 Result<void> UserStore::addUser(const std::string& username, const std::string& password, Role role) {
   if (!validUsername(username))
     return Result<void>::Err(ErrorCode::InvalidArgument,
-                             "username must be 3-32 chars: letters, digits, '_', '.', '-'");
-  if (password.size() < kMinPasswordLength)
-    return Result<void>::Err(ErrorCode::WeakPassword, "password must be at least 8 characters");
+                             "username must be 4-20 chars: letters, digits, '_', '.', '-'");
+  auto strong = checkPassword(password);
+  if (!strong.ok()) return strong;
   if (exists(username)) return Result<void>::Err(ErrorCode::AlreadyExists, "user already exists");
 
   User u;
