@@ -1,0 +1,27 @@
+name: Hardening
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  hardening:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Hardened build (-fstack-protector-strong, -D_FORTIFY_SOURCE=2)
+        run: make -f Makefile.hardened build
+
+      # Report-only: findings are shown in the log but do not block the PR.
+      - name: Unsafe C function scan
+        continue-on-error: true
+        run: make -f Makefile.hardened unsafe-check
+
+      - name: Install cppcheck
+        continue-on-error: true
+        run: sudo apt-get update && sudo apt-get install -y cppcheck
+
+      - name: cppcheck (error severity)
+        continue-on-error: true
+        run: make -f Makefile.hardened cppcheck

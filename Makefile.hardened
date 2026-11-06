@@ -1,0 +1,31 @@
+# Issue #20 (SEC-06): hardened build + cppcheck + unsafe-C-function scan.
+# Separate file on purpose: the team's main Makefile and CI are not touched.
+# Usage:  make -f Makefile.hardened check
+CXX    ?= g++
+SRCS   := $(shell find src -name '*.cpp')
+# -U first: some distro compilers already define _FORTIFY_SOURCE (avoids "redefined" warnings)
+HARDEN := -fstack-protector-strong -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
+CXXFLAGS_H := -std=c++17 -O2 -Wall -Wextra -Isrc $(HARDEN)
+UNSAFE := \b(gets|strcpy|strcat|sprintf|vsprintf)[[:space:]]*\(
+
+.PHONY: check build cppcheck unsafe-check clean
+
+check: build unsafe-check cppcheck
+
+build:
+	mkdir -p build
+	$(CXX) $(CXXFLAGS_H) $(SRCS) -o build/tms_hardened
+	@echo "OK: hardened build succeeded ($(HARDEN))"
+
+unsafe-check:
+	@if grep -rnE '$(UNSAFE)' --include='*.cpp' --include='*.hpp' --include='*.h' --include='*.c' src; then \
+	  echo "FAIL: unsafe C functions found (listed above)"; exit 1; \
+	else echo "OK: no unsafe C functions (gets/strcpy/strcat/sprintf/vsprintf)"; fi
+
+# Default cppcheck output = error severity only, matching "zero high-severity findings".
+cppcheck:
+	cppcheck --error-exitcode=1 --suppress=missingIncludeSystem -Isrc -q src
+	@echo "OK: cppcheck reports zero error-severity findings"
+
+clean:
+	rm -rf build
