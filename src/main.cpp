@@ -1,10 +1,14 @@
-// Traffic Management System (Simulation) - entry point.
-// Skeleton for Sprint 0/1; wired up during integration.
+// Traffic Management System (Simulation) - entry point (Team E16).
 #include <iostream>
-#include "common/result.h"
-#include "common/types.h"
+#include <random>
+
+#include "app/application.h"
 
 int main() {
-    std::cout << "Traffic Management System (Simulation) - Team E16\n";
-    return 0;
+    AppOptions options;
+    std::random_device rd;
+    // Salts and session ids must not be predictable from the simulation seed.
+    options.authSeed = (static_cast<std::uint64_t>(rd()) << 32) ^ static_cast<std::uint64_t>(rd());
+    Application app(std::cin, std::cout, options);
+    return app.run();
 }
