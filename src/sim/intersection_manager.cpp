@@ -2,23 +2,27 @@
 
 #include <algorithm>
 
+namespace {
+
+// 1..40 characters, not only blanks, no control characters, no '|' (config.ini separator).
+bool validName(const std::string& n) {
+    if (n.empty() || n.size() > IntersectionManager::kMaxNameLength) return false;
+    if (n.find_first_not_of(' ') == std::string::npos) return false;
+    return std::none_of(n.begin(), n.end(),
+                        [](char c) { return static_cast<unsigned char>(c) < 0x20 || c == '|'; });
+}
+
+// One arrival rate per lane, each 1..60 vehicles/min.
+bool validRates(const IntersectionDef& d) {
+    if (d.arrivalPerMin.size() != static_cast<std::size_t>(d.lanes)) return false;
+    return std::all_of(d.arrivalPerMin.begin(), d.arrivalPerMin.end(), [](int r) { return r >= 1 && r <= 60; });
+}
+
+}  // namespace
+
 Result<void> IntersectionManager::validate(const IntersectionDef& d) {
-    if (d.name.empty() || d.name.size() > kMaxNameLength ||
-        d.name.find_first_not_of(' ') == std::string::npos) {
-        return Result<void>::failure(ErrorCode::BadLength);
-    }
-    for (char c : d.name) {
-        if (static_cast<unsigned char>(c) < 0x20 || c == '|') {      // '|' is the config.ini separator
-            return Result<void>::failure(ErrorCode::BadLength);
-        }
-    }
-    if (d.lanes < 1 || d.lanes > 8) return Result<void>::failure(ErrorCode::OutOfRange);
-    if (d.arrivalPerMin.size() != static_cast<std::size_t>(d.lanes)) {
-        return Result<void>::failure(ErrorCode::OutOfRange);
-    }
-    for (int rate : d.arrivalPerMin) {
-        if (rate < 1 || rate > 60) return Result<void>::failure(ErrorCode::OutOfRange);
-    }
+    if (!validName(d.name)) return Result<void>::failure(ErrorCode::BadLength);
+    if (d.lanes < 1 || d.lanes > 8 || !validRates(d)) return Result<void>::failure(ErrorCode::OutOfRange);
     if (d.greenSeconds < 5 || d.greenSeconds > 120) return Result<void>::failure(ErrorCode::OutOfRange);
     return Result<void>::success();
 }

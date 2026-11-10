@@ -16,6 +16,36 @@ std::string trim(const std::string& s) {
     return s.substr(b, e - b + 1);
 }
 
+enum class Digits { Ok, NotNumeric, TooBig };
+
+Digits readDigits(const std::string& s, std::size_t from, long long& value) {
+    value = 0;
+    bool tooBig = false;
+    for (std::size_t i = from; i < s.size(); ++i) {
+        const char c = s[i];
+        if (c < '0' || c > '9') return Digits::NotNumeric;
+        if (!tooBig) {
+            value = value * 10 + (c - '0');
+            tooBig = value > 1000000000000LL;              // far beyond any valid field
+        }
+    }
+    return tooBig ? Digits::TooBig : Digits::Ok;
+}
+
+// Optional sign followed by digits.
+Digits readSigned(const std::string& s, long long& value) {
+    std::size_t from = 0;
+    bool negative = false;
+    if (s[0] == '-' || s[0] == '+') {
+        negative = (s[0] == '-');
+        from = 1;
+    }
+    if (from >= s.size()) return Digits::NotNumeric;
+    const Digits d = readDigits(s, from, value);
+    if (d == Digits::Ok && negative) value = -value;
+    return d;
+}
+
 }  // namespace
 
 Result<std::string> checkText(const std::string& raw, std::size_t minLen, std::size_t maxLen,
@@ -33,26 +63,10 @@ Result<long long> parseInteger(const std::string& raw, long long lo, long long h
     const std::string s = trim(raw);
     if (s.empty()) return Result<long long>::failure(ErrorCode::BadLength);
 
-    std::size_t i = 0;
-    bool negative = false;
-    if (s[0] == '-' || s[0] == '+') {
-        negative = (s[0] == '-');
-        i = 1;
-    }
-    if (i >= s.size()) return Result<long long>::failure(ErrorCode::NotNumeric);
-
     long long value = 0;
-    bool tooBig = false;
-    for (; i < s.size(); ++i) {
-        const char c = s[i];
-        if (c < '0' || c > '9') return Result<long long>::failure(ErrorCode::NotNumeric);
-        if (!tooBig) {
-            value = value * 10 + (c - '0');
-            if (value > 1000000000000LL) tooBig = true;   // far beyond any valid field
-        }
-    }
-    if (tooBig) return Result<long long>::failure(ErrorCode::OutOfRange);
-    if (negative) value = -value;
+    const Digits d = readSigned(s, value);
+    if (d == Digits::NotNumeric) return Result<long long>::failure(ErrorCode::NotNumeric);
+    if (d == Digits::TooBig) return Result<long long>::failure(ErrorCode::OutOfRange);
     if (value < lo || value > hi) return Result<long long>::failure(ErrorCode::OutOfRange);
     return Result<long long>::success(value);
 }

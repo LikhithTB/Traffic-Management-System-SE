@@ -42,6 +42,12 @@ public:
     Result<void> saveFile(const std::string& path) const;   // IoFailure on write error
 
 private:
+    bool applyLine(const std::string& rawLine);               // one line of config.ini
+    bool applySetting(const std::string& key, const std::string& value);
+    bool applyNumber(const std::string& key, const std::string& value);
+    bool applyThreshold(const std::string& key, const std::string& value);
+    bool applyIntersection(const std::string& value);
+
     std::uint32_t seed_{1};
     std::size_t moderateAt_{5};
     std::size_t highAt_{15};

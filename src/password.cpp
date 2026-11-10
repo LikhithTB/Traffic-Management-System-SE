@@ -1,5 +1,7 @@
 #include "password.hpp"
 
+#include <cctype>
+
 namespace tms {
 namespace {
 
@@ -30,18 +32,20 @@ std::string toHex(const Bytes& b) {
   return out;
 }
 
+namespace {
+int hexValue(char c) {
+  static const std::string digits = "0123456789abcdef";
+  const std::size_t p = digits.find(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+  return p == std::string::npos ? -1 : static_cast<int>(p);
+}
+}  // namespace
+
 Result<Bytes> fromHex(const std::string& hex) {
   if (hex.size() % 2 != 0) return Result<Bytes>::Err(ErrorCode::InvalidArgument, "odd-length hex");
-  auto nib = [](char c) -> int {
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-    return -1;
-  };
   Bytes out;
   out.reserve(hex.size() / 2);
   for (std::size_t i = 0; i < hex.size(); i += 2) {
-    int hi = nib(hex[i]), lo = nib(hex[i + 1]);
+    const int hi = hexValue(hex[i]), lo = hexValue(hex[i + 1]);
     if (hi < 0 || lo < 0) return Result<Bytes>::Err(ErrorCode::InvalidArgument, "bad hex digit");
     out.push_back(static_cast<std::uint8_t>((hi << 4) | lo));
   }

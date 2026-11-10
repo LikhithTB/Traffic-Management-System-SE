@@ -1,5 +1,7 @@
 #include "app/report_generator.h"
 
+#include <algorithm>
+#include <cstring>
 #include <iomanip>
 #include <sstream>
 
@@ -9,6 +11,11 @@ std::string fixed2(double v) {
     std::ostringstream os;
     os << std::fixed << std::setprecision(2) << v;
     return os.str();
+}
+
+bool badFileChar(char c) {
+    const unsigned char u = static_cast<unsigned char>(c);
+    return u < 0x20 || u == 0x7f || std::strchr("/\\:*?\"<>|", c) != nullptr;
 }
 
 bool endsWith(const std::string& s, const std::string& suffix) {
@@ -25,13 +32,7 @@ Result<void> ReportGenerator::validateFileName(const std::string& name) {
     if (name[0] == '.' || name.find("..") != std::string::npos) {
         return Result<void>::failure(ErrorCode::BadFileName);
     }
-    for (char c : name) {
-        const unsigned char u = static_cast<unsigned char>(c);
-        if (u < 0x20 || u == 0x7f || c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' ||
-            c == '"' || c == '<' || c == '>' || c == '|') {
-            return Result<void>::failure(ErrorCode::BadFileName);
-        }
-    }
+    if (std::any_of(name.begin(), name.end(), badFileChar)) return Result<void>::failure(ErrorCode::BadFileName);
     return Result<void>::success();
 }
 
