@@ -31,14 +31,27 @@ C++17 · g++ 11+ · Ubuntu 22.04 / Windows 11 (MinGW-w64) · local file storage
 
 ## Build & Run
 ```bash
-g++ -Wall -Wextra -std=c++17 -o tms src/*.cpp
-./tms
+make          # build ./tms        (Windows: mingw32-make, then .\tms.exe)
+./tms         # type h at any menu prompt for on-screen help
+make test     # all unit tests
 ```
+Quality gates (also run by GitHub Actions): `bash tools/coverage.sh 70`, `bash tools/complexity.sh`,
+`make -f Makefile.hardened check`.
+
+## Documentation
+| Document | Content |
+|---|---|
+| [`Phase2/User_Guide.md`](Phase2/User_Guide.md) | How to use the program, menus, help, error codes, Windows troubleshooting |
+| [`Phase2/Deviation_Log.md`](Phase2/Deviation_Log.md) | Final list of deviations from SRS / design / test plan, and open items |
+| [`Phase2/Coverage_Report.md`](Phase2/Coverage_Report.md) | Test coverage and complexity (NFR-05) |
+| [`Phase2/Usability_Test_TC17.md`](Phase2/Usability_Test_TC17.md) | Usability test sheet (NFR-04) |
 
 ## Repository Structure
 ```
 Phase1/    SRS, Test Plan, Architecture & Design Spec, diagrams
 Phase2/    Backlog documentation, screenshots, sprint demo videos
-src/       Source code
+src/       Source code (app/, common/, infra/, sim/, ui/)
+tests/     Unit and whole-program tests (make test)
+tools/     Coverage and complexity scripts
 .github/   GitHub Actions workflows
 ```

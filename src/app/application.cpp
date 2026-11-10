@@ -94,17 +94,23 @@ Application::Application(std::istream& in, std::ostream& out, AppOptions options
 
 // ------------------------------------------------------------------ helpers
 
-bool Application::inputEnded() const { return in_.fail(); }
-
 void Application::showError(ErrorCode e, const std::string& field, long long lo, long long hi) {
     out_ << "[" << errorCodeId(e) << "] " << errorMessage(e, field, lo, hi) << "\n";
 }
 
-int Application::chooseOption(int lo, int hi) {
+// Every menu screen reads its choice here. "h", "help" or "?" shows that screen's help (NFR-04).
+int Application::chooseOption(int lo, int hi, help::Screen screen) {
     while (true) {
-        const Result<long long> r = validator::readInteger(in_, out_, "Choice", lo, hi);
+        out_ << "Choice (" << lo << "-" << hi << ", h = help): ";
+        std::string line;
+        if (!validator::readLine(in_, line)) return -1;
+        if (help::isRequest(line)) {
+            out_ << help::text(screen);
+            continue;
+        }
+        const Result<long long> r = validator::parseInteger(line, lo, hi);
         if (r.ok()) return static_cast<int>(*r.value);
-        if (inputEnded()) return -1;
+        out_ << errorMessage(r.error, "Choice", lo, hi) << "\n";
     }
 }
 
@@ -185,7 +191,7 @@ bool Application::createFirstAdmin() {
 void Application::mainMenu() {
     while (true) {
         out_ << "\nMAIN MENU\n  1) Log in\n  2) Commuter view (read-only)\n  0) Exit\n";
-        const int c = chooseOption(0, 2);
+        const int c = chooseOption(0, 2, help::Screen::Main);
         if (c <= 0) return;
         if (c == 1) loginFlow();
         else commuterMenu();
@@ -218,7 +224,7 @@ void Application::sessionLoop(Session& session) {
              << "   4) Stop simulation          10) Configure system parameters (Admin)\n"
              << "   5) Show dashboard           11) Manage user accounts (Admin)\n"
              << "   6) Change green time         0) Log out\n";
-        const int c = chooseOption(0, 11);
+        const int c = chooseOption(0, 11, help::Screen::Operations);
         if (c < 0) return;
         if (c == 0) {
             adapter_.logout(session);
@@ -256,7 +262,7 @@ void Application::commuterMenu() {
     while (true) {
         out_ << "\nCOMMUTER VIEW (read-only, no login)\n  1) Congestion status\n  2) List reports\n"
              << "  3) Show a report\n  0) Back\n";
-        const int c = chooseOption(0, 11);
+        const int c = chooseOption(0, 11, help::Screen::Commuter);
         if (c <= 0) return;
         commuterChoice(c, view);
     }
@@ -391,7 +397,7 @@ void Application::manageIntersections(const Session&) {
     while (true) {
         out_ << "\nINTERSECTIONS (changes apply to the next simulation start)\n"
              << "  1) List  2) Add  3) Edit  4) Remove  0) Back\n";
-        const int c = chooseOption(0, 4);
+        const int c = chooseOption(0, 4, help::Screen::Intersections);
         if (c <= 0) return;
         if (c == 1) listIntersections();
         else if (c == 2) addIntersection();
@@ -540,7 +546,7 @@ void Application::configureSystem(const Session& s) {
              << "x  adaptive=" << (config_.adaptive() ? "on" : "off")
              << "\n  1) Random seed  2) Congestion thresholds  3) Session timeout  4) Simulation speed"
              << "  5) Adaptive signal timing  0) Back\n";
-        const int c = chooseOption(0, 5);
+        const int c = chooseOption(0, 5, help::Screen::Parameters);
         if (c <= 0) return;
         const Change change = changeSetting(c);
         if (!change.entered) continue;
@@ -554,7 +560,7 @@ void Application::configureSystem(const Session& s) {
 void Application::manageUsers(const Session& s) {
     while (true) {
         out_ << "\nUSER ACCOUNTS\n  1) Create account  2) List accounts  0) Back\n";
-        const int c = chooseOption(0, 2);
+        const int c = chooseOption(0, 2, help::Screen::Users);
         if (c <= 0) return;
         if (c == 1) {
             createUserDialog(s);

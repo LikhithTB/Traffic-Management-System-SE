@@ -12,6 +12,7 @@
 #include "app/config_manager.h"
 #include "app/dispatcher.h"
 #include "app/report_generator.h"
+#include "ui/help.h"
 #include "infra/audit_logger.h"
 #include "sim/congestion_monitor.h"
 #include "sim/signal_controller.h"
@@ -81,8 +82,7 @@ private:
     Change changeAdaptive();                            // FR-09 on/off
     void applyTimingPolicy();                            // config -> signal controller
     // helpers
-    int chooseOption(int lo, int hi);                   // -1 at end of input
-    bool inputEnded() const;
+    int chooseOption(int lo, int hi, help::Screen screen);   // -1 at end of input; h = help (NFR-04)
     void showError(ErrorCode e, const std::string& field = "value", long long lo = 0, long long hi = 0);
     bool simulationActive();
 
