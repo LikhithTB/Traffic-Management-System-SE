@@ -67,7 +67,7 @@ TEST(perf_95_percent_of_commands_finish_within_1_second_at_max_configuration) {
     std::sort(ms.begin(), ms.end());
     const double p95 = ms[static_cast<std::size_t>(ms.size() * 95 / 100) - 1];
     std::cout << "    (200 commands at 10 x 8 lanes: p95 " << p95 << " ms, max " << ms.back() << " ms)\n";
-#if !defined(__SANITIZE_ADDRESS__)
+#if defined(__OPTIMIZE__) && !defined(__SANITIZE_ADDRESS__)   // timing limits: optimized builds only
     CHECK(p95 <= 1000.0);
 #endif
 }
@@ -81,7 +81,7 @@ TEST(perf_fast_mode_runs_at_least_1000_ticks_per_second_at_max_configuration) {
     const double ms = msSince(begin);
     const double ticksPerSecond = 3600.0 / (ms / 1000.0);
     std::cout << "    (3600 ticks: " << ms << " ms = " << static_cast<long>(ticksPerSecond) << " ticks/s)\n";
-#if !defined(__SANITIZE_ADDRESS__)
+#if defined(__OPTIMIZE__) && !defined(__SANITIZE_ADDRESS__)   // timing limits: optimized builds only
     CHECK(ticksPerSecond >= 1000.0);
     CHECK(ms <= 4000.0);
 #endif
