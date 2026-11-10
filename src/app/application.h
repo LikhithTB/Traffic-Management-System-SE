@@ -16,6 +16,7 @@
 #include "sim/congestion_monitor.h"
 #include "sim/signal_controller.h"
 #include "sim/simulation_engine.h"
+#include "sim/timing_policy.h"
 
 struct AppOptions {
     std::string usersFile{"users.dat"};
@@ -78,6 +79,8 @@ private:
     Change changeThresholds();
     Change changeTimeout();
     Change changeSpeed();
+    Change changeAdaptive();                            // FR-09 on/off
+    void applyTimingPolicy();                            // config -> signal controller
     // helpers
     int chooseOption(int lo, int hi);                   // -1 at end of input
     bool inputEnded() const;
@@ -101,5 +104,6 @@ private:
     CongestionMonitor monitor_;
     SimulationEngine engine_;
     ReportGenerator reports_;
+    AdaptiveTiming adaptive_;                           // FR-09, reads the engine's queues
     std::uint32_t lastSeed_{0};
 };

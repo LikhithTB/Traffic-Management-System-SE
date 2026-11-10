@@ -94,7 +94,8 @@ Application::Application(std::istream& in, std::ostream& out, AppOptions options
       reports_([this](const std::string& name, const std::string& content) {
                    return writeReportFile(opts_.reportsDir, name, content);
                },
-               audit_) {
+               audit_),
+      adaptive_([this](int id, int lane) { return engine_.queueLength(id, lane); }) {
     if (!opts_.sleepMs) {
         opts_.sleepMs = [](int ms) { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); };
     }
@@ -278,6 +279,7 @@ void Application::startSimulation(const Session& s) {
         out_ << "Add at least one intersection first (menu 9).\n";
         return;
     }
+    applyTimingPolicy();
     const Result<void> r = engine_.start(cfg, s.username);
     if (!r.ok()) { showError(r.error); return; }
     lastSeed_ = cfg.seed;
@@ -518,19 +520,38 @@ Application::Change Application::changeSpeed() {
     return c;
 }
 
+Application::Change Application::changeAdaptive() {
+    Change c;
+    const auto v = validator::readInteger(in_, out_, "Adaptive signal timing (1 = on, 0 = off)", 0, 1);
+    if (!v.ok()) return c;
+    c.entered = true;
+    config_.setAdaptive(*v.value == 1);
+    applyTimingPolicy();                                        // also affects a running simulation
+    c.what = "adaptive=" + std::to_string(*v.value);
+    return c;
+}
+
+void Application::applyTimingPolicy() {
+    adaptive_.setThresholds(config_.moderateAt(), config_.highAt());
+    signals_.setTimingPolicy(config_.adaptive() ? &adaptive_ : nullptr);
+}
+
 Application::Change Application::changeSetting(int menuChoice) {
     if (menuChoice == 1) return changeSeed();
     if (menuChoice == 2) return changeThresholds();
     if (menuChoice == 3) return changeTimeout();
-    return changeSpeed();
+    if (menuChoice == 4) return changeSpeed();
+    return changeAdaptive();
 }
 
 void Application::configureSystem(const Session& s) {
     while (true) {
         out_ << "\nSYSTEM PARAMETERS  seed=" << config_.seed() << "  thresholds=" << config_.moderateAt() << "/"
              << config_.highAt() << "  timeout=" << config_.sessionTimeoutMin() << " min  speed=" << config_.speed()
-             << "x\n  1) Random seed  2) Congestion thresholds  3) Session timeout  4) Simulation speed  0) Back\n";
-        const int c = chooseOption(0, 4);
+             << "x  adaptive=" << (config_.adaptive() ? "on" : "off")
+             << "\n  1) Random seed  2) Congestion thresholds  3) Session timeout  4) Simulation speed"
+             << "  5) Adaptive signal timing  0) Back\n";
+        const int c = chooseOption(0, 5);
         if (c <= 0) return;
         const Change change = changeSetting(c);
         if (!change.entered) continue;
