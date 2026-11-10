@@ -46,6 +46,7 @@ private:
     void sessionLoop(Session& session);
     bool handle(int choice, Session& session);
     void commuterMenu();
+    void commuterChoice(int choice, const class CommuterView& view);
     // operator / admin actions
     void startSimulation(const Session& s);
     void runSimulation(const Session& s);
@@ -64,8 +65,6 @@ private:
     void editIntersection();
     void removeIntersection();
     bool promptIntersection(IntersectionDef& def);
-    void listReports();
-    void viewReport();
     void createUserDialog(const Session& s);
     void saveConfig();
     struct Change {                                      // one entry of the configuration menu

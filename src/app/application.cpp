@@ -13,6 +13,7 @@
 
 #include "app/report_writer.h"
 #include "common/messages.h"
+#include "ui/commuter_view.h"
 #include "ui/dashboard.h"
 #include "ui/validator.h"
 
@@ -65,16 +66,6 @@ Command commandFor(int choice) {
         Command::ManageUsers           // 11 users
     };
     return table[choice];
-}
-
-std::vector<std::string> reportNames(const std::string& dir) {
-    std::vector<std::string> names;
-    std::error_code ec;
-    for (fs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
-        if (it->is_regular_file(ec)) names.push_back(it->path().filename().string());
-    }
-    std::sort(names.begin(), names.end());
-    return names;
 }
 
 }  // namespace
@@ -256,17 +247,37 @@ bool Application::handle(int choice, Session& session) {
     return true;
 }
 
+// FR-10 / TC-13: read-only, no login. The view only gets a const engine, so it cannot change
+// anything. Operations-menu numbers 4..11 typed here go to the Dispatcher without a session
+// and are refused with E-AUTH-004 (and audited), like any other command without login.
 void Application::commuterMenu() {
+    const CommuterView view(engine_, opts_.reportsDir);
     while (true) {
-        out_ << "\nCOMMUTER VIEW (read-only)\n  1) Congestion status\n  2) List reports\n  3) Show a report\n  0) Back\n";
-        const int c = chooseOption(0, 3);
+        out_ << "\nCOMMUTER VIEW (read-only, no login)\n  1) Congestion status\n  2) List reports\n"
+             << "  3) Show a report\n  0) Back\n";
+        const int c = chooseOption(0, 11);
         if (c <= 0) return;
-        const Command cmd = (c == 1) ? Command::ViewCongestion : Command::ViewReports;
-        const Result<void> allowed = dispatcher_.authorize(nullptr, cmd);
-        if (!allowed.ok()) { showError(allowed.error); continue; }
-        if (c == 1) dashboard::renderCommuter(out_, engine_.snapshot());
-        else if (c == 2) listReports();
-        else viewReport();
+        commuterChoice(c, view);
+    }
+}
+
+void Application::commuterChoice(int choice, const CommuterView& view) {
+    const Command cmd = choice == 1 ? Command::ViewCongestion
+                      : choice <= 3 ? Command::ViewReports
+                                    : commandFor(choice);
+    const Result<void> allowed = dispatcher_.authorize(nullptr, cmd);
+    if (!allowed.ok()) {
+        showError(allowed.error);
+        out_ << "Control, configuration and user functions need a login (main menu 1).\n";
+        return;
+    }
+    if (choice == 1) {
+        view.showCongestion(out_);
+    } else if (choice == 2) {
+        view.listReports(out_);
+    } else {
+        const Result<std::string> name = validator::readText(in_, out_, "Report file name", 1, 64);
+        if (name.ok()) view.showReport(out_, *name.value);
     }
 }
 
@@ -370,28 +381,6 @@ void Application::generateReport(const Session& s) {
         return;
     }
     out_ << "Report saved: " << *r.value << "\n";
-}
-
-void Application::listReports() {
-    const std::vector<std::string> names = reportNames(opts_.reportsDir);
-    if (names.empty()) {
-        out_ << "No reports yet.\n";
-        return;
-    }
-    out_ << "Reports:\n";
-    for (const auto& n : names) out_ << "  " << n << "\n";
-}
-
-void Application::viewReport() {
-    const Result<std::string> name = validator::readText(in_, out_, "Report file name", 1, 64);
-    if (!name.ok()) return;
-    const Result<void> ok = ReportGenerator::validateFileName(*name.value);
-    if (!ok.ok()) { showError(ok.error); return; }
-    std::ifstream file((fs::path(opts_.reportsDir) / *name.value).string(), std::ios::binary);
-    if (!file) { showError(ErrorCode::IoFailure); return; }
-    std::ostringstream text;
-    text << file.rdbuf();
-    out_ << text.str();
 }
 
 // ------------------------------------------------------------------ intersections (FR-08)
