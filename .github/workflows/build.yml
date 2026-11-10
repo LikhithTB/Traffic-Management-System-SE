@@ -9,3 +9,9 @@ jobs:
         run: make
       - name: Unit tests
         run: make test
+      - name: Line coverage (>= 70 %)
+        run: bash tools/coverage.sh 70
+      - name: Cyclomatic complexity (<= 10 per function)
+        run: |
+          pip install lizard
+          bash tools/complexity.sh

@@ -56,6 +56,32 @@ Result<Role> roleFromString(const std::string& s) {
   return Result<Role>::Err(ErrorCode::InvalidArgument, "unknown role: " + s);
 }
 
+namespace {
+
+bool parseIterations(const std::string& text, unsigned long& iterations) {
+  try {
+    std::size_t pos = 0;
+    iterations = std::stoul(text, &pos);
+    return pos == text.size() && iterations != 0;
+  } catch (...) {
+    return false;
+  }
+}
+
+// One line of the user file: username|role|saltHex|hashHex|iterations. False if malformed.
+bool parseUserLine(const std::string& line, User& out) {
+  const auto f = split(line, '|');
+  if (f.size() != 5 || !validUsername(f[0])) return false;
+  const auto role = roleFromString(f[1]);
+  if (!role.ok() || !fromHex(f[2]).ok() || !fromHex(f[3]).ok()) return false;
+  unsigned long iterations = 0;
+  if (!parseIterations(f[4], iterations)) return false;
+  out = User{f[0], role.value(), f[2], f[3], static_cast<unsigned>(iterations)};
+  return true;
+}
+
+}  // namespace
+
 UserStore::UserStore(FileStore file, SeededRng& rng, unsigned iterations)
     : file_(std::move(file)), rng_(rng), iterations_(iterations) {}
 
@@ -66,23 +92,12 @@ Result<void> UserStore::load() {
   if (!lines.ok()) return Propagate<void>(lines);
 
   for (const auto& line : lines.value()) {
-    auto f = split(line, '|');
-    auto corrupt = [&]() {
+    User u;
+    if (!parseUserLine(line, u)) {
       users_.clear();
       return Result<void>::Err(ErrorCode::Corrupt, "malformed user record in " + file_.path());
-    };
-    if (f.size() != 5 || !validUsername(f[0])) return corrupt();
-    auto role = roleFromString(f[1]);
-    if (!role.ok() || !fromHex(f[2]).ok() || !fromHex(f[3]).ok()) return corrupt();
-    unsigned long it = 0;
-    try {
-      std::size_t pos = 0;
-      it = std::stoul(f[4], &pos);
-      if (pos != f[4].size() || it == 0) return corrupt();
-    } catch (...) {
-      return corrupt();
     }
-    users_[f[0]] = User{f[0], role.value(), f[2], f[3], static_cast<unsigned>(it)};
+    users_[u.username] = u;
   }
   return Result<void>::Ok();
 }

@@ -96,42 +96,49 @@ SimConfig ConfigManager::buildSimConfig() const {
 
 void ConfigManager::resetToDefaults() { *this = ConfigManager(); }
 
+bool ConfigManager::applyIntersection(const std::string& value) {
+    IntersectionDef def;
+    return parseIntersection(value, def) && intersections_.add(def).ok();
+}
+
+bool ConfigManager::applyNumber(const std::string& key, const std::string& value) {
+    long long n = 0;
+    if (key == "seed") return number(value, 0, kMaxSeed, n) && setSeed(n).ok();
+    if (key == "timeout_min") return number(value, 1, 60, n) && setSessionTimeoutMin(n).ok();
+    if (key == "speed") return number(value, 1, 60, n) && setSpeed(n).ok();
+    return false;                                              // unknown key
+}
+
+bool ConfigManager::applyThreshold(const std::string& key, const std::string& value) {
+    long long n = 0;
+    if (!number(value, 1, 1000, n)) return false;
+    (key == "moderate" ? moderateAt_ : highAt_) = static_cast<std::size_t>(n);
+    return true;                                               // moderate < high is checked at the end
+}
+
+bool ConfigManager::applySetting(const std::string& key, const std::string& value) {
+    if (key == "intersection") return applyIntersection(value);
+    if (key == "moderate" || key == "high") return applyThreshold(key, value);
+    return applyNumber(key, value);
+}
+
+bool ConfigManager::applyLine(const std::string& rawLine) {
+    if (rawLine.size() > 1000) return false;
+    const std::string line = trim(rawLine);
+    if (line.empty() || line[0] == '#') return true;
+    const std::size_t eq = line.find('=');
+    if (eq == std::string::npos) return false;
+    return applySetting(trim(line.substr(0, eq)), trim(line.substr(eq + 1)));
+}
+
 Result<void> ConfigManager::parse(std::istream& in) {
     ConfigManager next;                       // built aside; applied only if the whole file is valid
-    bool corrupt = false;
+    bool ok = true;
     std::string raw;
-    while (!corrupt && std::getline(in, raw)) {
-        if (raw.size() > 1000) { corrupt = true; break; }
-        const std::string line = trim(raw);
-        if (line.empty() || line[0] == '#') continue;
-        const std::size_t eq = line.find('=');
-        if (eq == std::string::npos) { corrupt = true; break; }
-        const std::string key = trim(line.substr(0, eq));
-        const std::string value = trim(line.substr(eq + 1));
-        long long n = 0;
+    while (ok && std::getline(in, raw)) ok = next.applyLine(raw);
+    ok = ok && next.highAt_ > next.moderateAt_;
 
-        if (key == "seed") {
-            corrupt = !number(value, 0, kMaxSeed, n) || !next.setSeed(n).ok();
-        } else if (key == "moderate") {
-            corrupt = !number(value, 1, 1000, n);
-            if (!corrupt) next.moderateAt_ = static_cast<std::size_t>(n);
-        } else if (key == "high") {
-            corrupt = !number(value, 1, 1000, n);
-            if (!corrupt) next.highAt_ = static_cast<std::size_t>(n);
-        } else if (key == "timeout_min") {
-            corrupt = !number(value, 1, 60, n) || !next.setSessionTimeoutMin(n).ok();
-        } else if (key == "speed") {
-            corrupt = !number(value, 1, 60, n) || !next.setSpeed(n).ok();
-        } else if (key == "intersection") {
-            IntersectionDef def;
-            corrupt = !parseIntersection(value, def) || !next.intersections_.add(def).ok();
-        } else {
-            corrupt = true;                   // unknown key
-        }
-    }
-    if (!corrupt && next.highAt_ <= next.moderateAt_) corrupt = true;
-
-    if (corrupt) {
+    if (!ok) {
         resetToDefaults();
         return Result<void>::failure(ErrorCode::ConfigCorrupt);
     }
