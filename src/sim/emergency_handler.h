@@ -21,6 +21,7 @@ public:
     bool hasActive() const { return !queue_.empty(); }
     const EmergencyEvent& active() const { return queue_.top(); }   // only if hasActive()
     void complete();                                                 // active vehicle departed
+    void cancel(std::uint64_t vehicleId);                            // a waiting vehicle left on its own
     void clear();
     std::size_t pending() const { return queue_.size(); }
 

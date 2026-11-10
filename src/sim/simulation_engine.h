@@ -55,6 +55,7 @@ private:
     void generateArrivals();
     void servePendingEmergency();
     void departVehicles();
+    void onEmergencyDeparted(std::uint64_t vehicleId, int intersectionId, std::size_t lane0);
 
     ISignalController& signals_;
     IRandom& rng_;
