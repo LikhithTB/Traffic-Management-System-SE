@@ -88,6 +88,21 @@ TEST(config_round_trip_keeps_everything) {
     CHECK(r->arrivalPerMin == (std::vector<int>{10, 22, 60}));
 }
 
+TEST(config_adaptive_is_off_by_default_and_round_trips) {
+    ConfigManager a;
+    CHECK(!a.adaptive());
+    a.setAdaptive(true);
+    std::ostringstream out;
+    a.serialize(out);
+    ConfigManager b;
+    CHECK(parseText(b, out.str()).ok());
+    CHECK(b.adaptive());
+    CHECK(parseText(b, "seed=5\n").ok());       // config files without the key stay valid
+    CHECK(!b.adaptive());
+    CHECK_EQ(parseText(b, "adaptive=2\n").error, ErrorCode::ConfigCorrupt);
+    CHECK_EQ(parseText(b, "adaptive=yes\n").error, ErrorCode::ConfigCorrupt);
+}
+
 TEST(config_comments_blank_lines_and_crlf_are_fine) {
     ConfigManager c;
     CHECK(parseText(c, "# comment\r\n\r\nseed = 77\r\n  speed=60  \r\n").ok());

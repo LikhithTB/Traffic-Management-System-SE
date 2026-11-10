@@ -116,8 +116,16 @@ bool ConfigManager::applyThreshold(const std::string& key, const std::string& va
     return true;                                               // moderate < high is checked at the end
 }
 
+bool ConfigManager::applyFlag(const std::string& value) {
+    long long n = 0;
+    if (!number(value, 0, 1, n)) return false;
+    adaptive_ = (n == 1);
+    return true;
+}
+
 bool ConfigManager::applySetting(const std::string& key, const std::string& value) {
     if (key == "intersection") return applyIntersection(value);
+    if (key == "adaptive") return applyFlag(value);
     if (key == "moderate" || key == "high") return applyThreshold(key, value);
     return applyNumber(key, value);
 }
@@ -153,6 +161,7 @@ void ConfigManager::serialize(std::ostream& out) const {
     out << "high=" << highAt_ << "\n";
     out << "timeout_min=" << timeoutMin_ << "\n";
     out << "speed=" << speed_ << "\n";
+    out << "adaptive=" << (adaptive_ ? 1 : 0) << "\n";
     for (const auto& d : intersections_.list()) {
         out << "intersection=" << d.id << "|" << d.name << "|" << d.lanes << "|" << d.greenSeconds << "|";
         for (std::size_t i = 0; i < d.arrivalPerMin.size(); ++i) {

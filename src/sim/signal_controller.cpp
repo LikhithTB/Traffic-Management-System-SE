@@ -2,6 +2,10 @@
 
 #include <algorithm>
 
+namespace {
+const FixedTiming kFixedTiming;
+}
+
 void SignalController::reset() { states_.clear(); }
 
 void SignalController::addIntersection(int id, int laneCount, int greenSeconds) {
@@ -30,6 +34,14 @@ void SignalController::nextLane(State& s) {
     if (s.current == 0) s.activeGreen = s.configuredGreen;     // new cycle: apply new green time
     s.phase = Phase::Green;
     s.remaining = s.activeGreen;
+    s.extended = 0;
+}
+
+bool SignalController::mayExtend(int id, const State& s) const {
+    if (s.extended + kExtensionStep > kMaxExtension) return false;
+    if (s.activeGreen + s.extended + kExtensionStep > kMaxTotalGreen) return false;
+    const ITimingPolicy& policy = policy_ != nullptr ? *policy_ : kFixedTiming;
+    return policy.shouldExtendGreen(id, s.current, s.lanes);
 }
 
 void SignalController::tick() {
@@ -38,12 +50,18 @@ void SignalController::tick() {
         if (s.phase == Phase::EmergencyHold) continue;          // held until release()
         if (--s.remaining > 0) continue;
         if (s.phase == Phase::Green) {
+            if (mayExtend(entry.first, s)) {                    // FR-09: stay green for one more step
+                s.extended += kExtensionStep;
+                s.remaining = kExtensionStep;
+                continue;
+            }
             s.phase = Phase::Yellow;
             s.remaining = kYellowSeconds;
         } else if (s.preempting) {                              // yellow finished -> hand over
             s.phase = Phase::EmergencyHold;
             s.current = s.target;
             s.preempting = false;
+            s.extended = 0;
         } else {
             nextLane(s);
         }
@@ -84,6 +102,7 @@ void SignalController::preempt(int id, int lane) {
     if (s.current == lane && s.phase == Phase::Green) {         // already green: open at once
         s.phase = Phase::EmergencyHold;
         s.preempting = false;
+        s.extended = 0;
         return;
     }
     s.preempting = true;
@@ -103,4 +122,11 @@ void SignalController::release(int id) {
     } else {
         s.preempting = false;                                   // preempt cancelled before it opened
     }
+}
+
+void SignalController::setTimingPolicy(const ITimingPolicy* policy) { policy_ = policy; }
+
+int SignalController::extendedSeconds(int id) const {
+    auto it = states_.find(id);
+    return it == states_.end() ? 0 : it->second.extended;
 }

@@ -354,6 +354,37 @@ TEST(app_saved_settings_are_loaded_on_next_start) {
     CHECK(has(r.out, "Simulation started: seed 123"));
 }
 
+TEST(app_adaptive_timing_is_switched_on_saved_audited_and_reloaded) {          // FR-09, issue #14
+    Sandbox sb("adaptive");
+    {
+        ScriptedInput in;
+        in.lines(kFirstRun).lines(kLoginAdmin)
+          .lines({"10", "5", "2", "5", "1", "0"})                                   // 2 is out of range, then on
+          .lines({"1", "2", "60", "0", "0"});
+        const Result2 r = runApp(sb, in);
+        CHECK(has(r.out, "adaptive=off"));
+        CHECK(has(r.out, "Saved (adaptive=1)."));
+        CHECK(has(r.out, "adaptive=on"));
+        CHECK(has(r.out, "(tick 60)"));
+    }
+    CHECK(has(sb.read("config.ini"), "adaptive=1"));
+    CHECK(has(sb.read("audit.log"), "PARAM_CHANGE | adaptive=1"));
+    ScriptedInput in2;
+    in2.lines(kLoginAdmin).lines({"10", "0", "0", "0"});
+    CHECK(has(runApp(sb, in2).out, "adaptive=on"));
+}
+
+TEST(app_operator_cannot_switch_adaptive_timing) {
+    Sandbox sb("adaptive_op");
+    ScriptedInput in;
+    in.lines(kFirstRun).lines(kLoginAdmin)
+      .lines({"11", "1", "oper1", "Oper12345", "1", "0", "0"})
+      .lines({"1", "oper1", "Oper12345", "10", "0", "0"});
+    const Result2 r = runApp(sb, in);
+    CHECK(has(r.out, "[E-AUTH-004]"));
+    CHECK(!has(sb.read("audit.log"), "adaptive="));
+}
+
 TEST(app_corrupt_config_falls_back_to_defaults_with_error_code) {
     Sandbox sb("corrupt_cfg");
     { std::ofstream f(sb.dir / "config.ini"); f << "seed=oops\n"; }
