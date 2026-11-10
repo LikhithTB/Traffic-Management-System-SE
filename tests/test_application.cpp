@@ -396,6 +396,40 @@ TEST(app_commuter_view_is_read_only_and_needs_no_login) {
     CHECK(!has(after.substr(commuter), "GREEN"));                                   // no signal data or controls
 }
 
+TEST(app_tc13_commuter_cannot_reach_control_configuration_or_user_functions) {   // issue #16
+    Sandbox sb("tc13");
+    ScriptedInput in;
+    in.lines(kFirstRun)
+      .lines({"2", "4", "6", "7", "9", "10", "11", "12", "1", "0", "0"});
+    const Result2 r = runApp(sb, in);
+    CHECK_EQ(r.code, 0);
+    CHECK_EQ(count(r.out, "[E-AUTH-004]"), 6);                                    // every control command refused
+    CHECK(has(r.out, "need a login (main menu 1)"));
+    CHECK(has(r.out, "No data available."));                                        // the view still works afterwards
+    CHECK(!has(r.out, "OPERATIONS MENU"));
+    CHECK(!has(r.out, "SYSTEM PARAMETERS"));
+    CHECK(!has(r.out, "USER ACCOUNTS"));
+    CHECK(!has(r.out, "Simulation started"));
+    const std::string audit = sb.read("audit.log");
+    CHECK(has(audit, "anonymous | DENIED:StopSimulation | E-AUTH-004"));
+    CHECK(has(audit, "anonymous | DENIED:ConfigureParameters | E-AUTH-004"));
+    CHECK(has(audit, "anonymous | DENIED:ManageUsers | E-AUTH-004"));
+}
+
+TEST(app_commuter_view_hides_files_that_are_not_reports) {
+    Sandbox sb("commuter_hide");
+    fs::create_directories(sb.dir / "reports");
+    { std::ofstream f(sb.dir / "reports" / "secret.dat"); f << "do not show"; }
+    { std::ofstream f(sb.dir / "reports" / "day1.txt"); f << "Traffic report day 1"; }
+    ScriptedInput in;
+    in.lines(kFirstRun).lines({"2", "2", "3", "secret.dat", "3", "day1.txt", "0", "0"});
+    const Result2 r = runApp(sb, in);
+    CHECK(has(r.out, "Reports:\n  day1.txt\n"));
+    CHECK(!has(r.out, "do not show"));
+    CHECK(has(r.out, "[E-IO-001]"));
+    CHECK(has(r.out, "Traffic report day 1"));
+}
+
 TEST(app_same_seed_gives_identical_report_in_two_separate_runs) {
     auto run = [](const std::string& name) {
         Sandbox sb(name);
