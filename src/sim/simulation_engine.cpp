@@ -196,15 +196,22 @@ void SimulationEngine::departVehicles() {
             lane.lastDeparture = now_;
             monitor_.recordDeparture(now_ - v.arrivalTick);
 
-            if (v.type == VehicleType::Emergency && emergency_.hasActive() &&
-                emergency_.active().vehicleId == v.id) {
-                emergency_.complete();
-                signals_.release(is.def.id);          // resume the normal cycle
-                activePreempted_ = false;
-                (void)audit_.log("system", "EMERGENCY_CLEARED",
-                                 "intersection=" + std::to_string(is.def.id) +
-                                     " lane=" + std::to_string(i + 1));
-            }
+            if (v.type == VehicleType::Emergency) onEmergencyDeparted(v.id, is.def.id, i);
         }
     }
+}
+
+// FR-04: an emergency vehicle has left its lane.
+void SimulationEngine::onEmergencyDeparted(std::uint64_t vehicleId, int intersectionId,
+                                           std::size_t lane0) {
+    if (!(emergency_.hasActive() && emergency_.active().vehicleId == vehicleId)) {
+        emergency_.cancel(vehicleId);             // left before its turn: nothing to serve later
+        return;
+    }
+    emergency_.complete();
+    signals_.release(intersectionId);             // resume the normal cycle
+    activePreempted_ = false;
+    (void)audit_.log("system", "EMERGENCY_CLEARED",
+                     "intersection=" + std::to_string(intersectionId) +
+                         " lane=" + std::to_string(lane0 + 1));
 }
