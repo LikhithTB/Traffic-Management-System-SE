@@ -474,3 +474,59 @@ TEST(app_same_seed_gives_identical_report_in_two_separate_runs) {
     CHECK(!a.empty());
     CHECK_EQ(a, b);                                                                 // NFR-08
 }
+
+// ---------------------------------------------------------------- issue #21 (NFR-04, TC-17)
+
+TEST(app_help_is_available_on_every_menu_screen) {
+    Sandbox sb("help");
+    ScriptedInput in;
+    in.lines(kFirstRun)
+      .lines({"h", "2", "?", "0"})                                                  // main, commuter
+      .lines(kLoginAdmin).lines({"help"})                                           // operations
+      .lines({"9", "h", "0", "10", "h", "0", "11", "H", "0", "0", "0"});           // the three level-3 menus
+    const Result2 r = runApp(sb, in);
+    CHECK_EQ(r.code, 0);
+    for (const char* title : {"HELP - MAIN MENU", "HELP - COMMUTER VIEW", "HELP - OPERATIONS MENU",
+                              "HELP - INTERSECTIONS", "HELP - SYSTEM PARAMETERS", "HELP - USER ACCOUNTS"}) {
+        CHECK(has(r.out, title));
+    }
+    CHECK(has(r.out, "Choice (0-2, h = help): "));                                  // the help line on every screen
+    CHECK(has(r.out, "Choice (0-11, h = help): "));
+    CHECK(!has(r.out, "must be a number"));                                         // help is not an input error
+}
+
+TEST(app_tc17_first_time_user_starts_a_simulation_and_reads_lane_2_with_help_only) {
+    Sandbox sb("tc17");
+    ScriptedInput in;
+    in.lines(kFirstRun).lines({"h"}).lines(kLoginAdmin)
+      .lines({"h", "1", "2", "60", "0", "0"});
+    const Result2 r = runApp(sb, in);
+    CHECK(has(r.out, "Quick start"));
+    CHECK(has(r.out, "To read the congestion of lane 2"));
+    CHECK(has(r.out, "Simulation started"));
+    const std::size_t dash = r.out.rfind("LIVE DASHBOARD");
+    CHECK(dash != std::string::npos);
+    CHECK(r.out.find("\n  2     ", dash) != std::string::npos);                    // the row of lane 2
+}
+
+TEST(app_menus_are_at_most_three_levels_deep) {
+    // Main (1) -> Operations (2) -> Intersections / Parameters / Users (3). Every option of a
+    // level-3 menu is an action or a form, never another menu: 0 always returns one level up.
+    Sandbox sb("depth");
+    ScriptedInput in;
+    in.lines(kFirstRun).lines(kLoginAdmin)
+      .lines({"9", "1", "0", "10", "0", "11", "2", "0", "0", "0"});
+    const Result2 r = runApp(sb, in);
+    CHECK_EQ(r.code, 0);
+    CHECK_EQ(count(r.out, "OPERATIONS MENU  ("), 4);                               // back at level 2 after each
+    CHECK(has(r.out, "INTERSECTIONS") && has(r.out, "SYSTEM PARAMETERS") && has(r.out, "USER ACCOUNTS"));
+}
+
+TEST(app_invalid_input_still_names_field_and_range_with_help_prompt) {
+    Sandbox sb("invalid_help");
+    ScriptedInput in;
+    in.lines(kFirstRun).lines({"x", "7", "0"});
+    const Result2 r = runApp(sb, in);
+    CHECK(has(r.out, "Choice must be a number."));
+    CHECK(has(r.out, "Choice must be between 0 and 2."));
+}
