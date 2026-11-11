@@ -47,7 +47,7 @@ one row per lane: signal, queue length and congestion (Low / Moderate / High).
 | 8 | Generate a CSV or TXT report | Operator, Admin |
 | 9 | Manage intersections (list / add / edit / remove, max 10, 1–8 lanes) | Operator, Admin |
 | 10 | Configure system parameters (seed, congestion thresholds, session timeout, speed 1×/10×/60×, adaptive signal timing on/off) | Admin |
-| 11 | Manage user accounts (create, list) | Admin |
+| 11 | Manage user accounts (create, list, deactivate, delete) | Admin |
 | 0 | Log out | |
 
 Commands a role may not use are refused with `[E-AUTH-004]` and written to the audit log.

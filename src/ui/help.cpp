@@ -60,7 +60,10 @@ const char* const kUsers =
     "HELP - USER ACCOUNTS (Administrator)\n"
     "  1  Create an account: username 4-20 characters (letters, digits, _ . -), password at least\n"
     "     8 characters with a letter and a digit, role 1 = Operator or 2 = Administrator.\n"
-    "  2  List the accounts.   0  Back.\n";
+    "  2  List the accounts (deactivated ones are marked).\n"
+    "  3  Deactivate an account: it can no longer log in and any open session ends; the record is kept.\n"
+    "  4  Delete an account permanently (asks for confirmation).\n"
+    "     You cannot deactivate or delete your own account.   0  Back.\n";
 
 }  // namespace
 

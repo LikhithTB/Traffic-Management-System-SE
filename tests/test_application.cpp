@@ -530,3 +530,56 @@ TEST(app_invalid_input_still_names_field_and_range_with_help_prompt) {
     CHECK(has(r.out, "Choice must be a number."));
     CHECK(has(r.out, "Choice must be between 0 and 2."));
 }
+
+// ---- Story #12 (FR-07): deactivate and delete accounts through the menu ----
+TEST(app_fr07_deactivate_account_blocks_login_and_marks_it_in_the_list) {
+    Sandbox sb("fr07_deactivate");
+    ScriptedInput in;
+    in.lines(kFirstRun).lines(kLoginAdmin)
+      .lines({"11", "1", "oper1", "Pass1234", "1"})                  // create
+      .lines({"3", "oper1"})                                          // deactivate
+      .lines({"2", "0", "0"})                                         // list, back, log out
+      .lines({"1", "oper1", "Pass1234", "0"});                        // deactivated user tries to log in
+    const Result2 r = runApp(sb, in);
+    CHECK(has(r.out, "Account oper1 deactivated."));
+    CHECK(has(r.out, "  oper1  (deactivated)\n"));
+    CHECK(!has(r.out, "Logged in as oper1"));
+    CHECK(has(r.out, "[E-AUTH-001]"));
+    CHECK(has(sb.read("audit.log"), "USER_DEACTIVATE | OK username=oper1"));
+    CHECK(has(sb.read("users.dat"), "|inactive"));                   // survives a restart
+}
+
+TEST(app_fr07_delete_account_asks_for_confirmation_then_removes_it) {
+    Sandbox sb("fr07_delete");
+    ScriptedInput in;
+    in.lines(kFirstRun).lines(kLoginAdmin)
+      .lines({"11", "1", "oper1", "Pass1234", "1"})
+      .lines({"4", "oper1", "0"})                                     // answer "no": nothing changes
+      .lines({"4", "oper1", "1"})                                     // answer "yes": deleted
+      .lines({"2", "0", "0"})
+      .lines({"1", "oper1", "Pass1234", "0"});
+    const Result2 r = runApp(sb, in);
+    CHECK(has(r.out, "Nothing was changed."));
+    CHECK(has(r.out, "Account oper1 deleted."));
+    CHECK(!has(r.out, "  oper1\n"));                                  // gone from the list
+    CHECK(!has(r.out, "Logged in as oper1"));
+    CHECK(!has(sb.read("users.dat"), "oper1|"));
+    CHECK(has(sb.read("audit.log"), "USER_DELETE | OK username=oper1"));
+}
+
+TEST(app_fr07_admin_cannot_remove_own_account_or_an_unknown_one) {
+    Sandbox sb("fr07_self");
+    ScriptedInput in;
+    in.lines(kFirstRun).lines(kLoginAdmin)
+      .lines({"11", "3", "admin1"})                                   // deactivate self
+      .lines({"4", "admin1", "1"})                                    // delete self (confirmed)
+      .lines({"3", "nobody"})                                         // unknown
+      .lines({"0", "0"})
+      .lines({"1", "admin1", "Admin1234", "0", "0"});                 // still able to log in
+    const Result2 r = runApp(sb, in);
+    CHECK_EQ(count(r.out, "[E-VAL-001] Not done"), 3);
+    CHECK(!has(r.out, "deactivated.") && !has(r.out, "deleted."));
+    CHECK_EQ(count(r.out, "Logged in as admin1 (Admin)."), 2);
+    CHECK(has(sb.read("audit.log"), "USER_DEACTIVATE | E-VAL-001"));
+    CHECK(has(sb.read("audit.log"), "USER_DELETE | E-VAL-001"));
+}

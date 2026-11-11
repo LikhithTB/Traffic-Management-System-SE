@@ -88,6 +88,11 @@ Result<Session> AuthService::validateSession(std::uint64_t sessionId) {
   if (it == sessions_.end())
     return Result<Session>::Err(ErrorCode::SessionExpired, "no active session");
   const SimClock::Tick now = clock_.now();
+  if (!users_.isActive(it->second.username)) {   // deactivated or deleted while logged in (FR-07)
+    audit(it->second.username, "SESSION_EXPIRED", "E-AUTH-003");
+    sessions_.erase(it);
+    return Result<Session>::Err(ErrorCode::SessionExpired, "account is no longer active");
+  }
   if (now - it->second.lastActivity >= cfg_.sessionTimeoutSeconds) {
     audit(it->second.username, "SESSION_EXPIRED", "E-AUTH-003");
     sessions_.erase(it);
@@ -102,6 +107,14 @@ void AuthService::logout(std::uint64_t sessionId) {
   if (it == sessions_.end()) return;
   audit(it->second.username, "LOGOUT", "OK");
   sessions_.erase(it);
+}
+
+void AuthService::revokeUser(const std::string& username) {
+  for (auto it = sessions_.begin(); it != sessions_.end();) {
+    if (it->second.username == username) it = sessions_.erase(it);
+    else ++it;
+  }
+  attempts_.erase(username);
 }
 
 }  // namespace tms
