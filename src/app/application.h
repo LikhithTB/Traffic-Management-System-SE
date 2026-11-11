@@ -68,6 +68,7 @@ private:
     void removeIntersection();
     bool promptIntersection(IntersectionDef& def);
     void createUserDialog(const Session& s);
+    void removeUserDialog(const Session& s, bool permanent);   // false = deactivate, true = delete (FR-07)
     void saveConfig();
     struct Change {                                      // one entry of the configuration menu
         bool entered{false};                             // false: input was not completed

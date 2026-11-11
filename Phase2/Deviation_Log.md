@@ -27,11 +27,13 @@ delivered product. This is the final list for the demo: it merges the Sprint 1 l
 | D-16 | FR-10 ("completed reports") | A completed report is a `.csv` or `.txt` file in `reports/`. Other files in that folder are neither listed nor readable from the Commuter view. | The report writer only creates `.csv` / `.txt`; anything else is not a report. |
 | D-17 | Architecture (Commuter Read-only View) | The view is `ui/commuter_view`. It reads `SimulationEngine::snapshot()` through a **const** reference (the engine asks the monitor), not `Monitor.snapshot()` directly. | Same data; the const reference makes "no write calls" a compile-time guarantee. |
 | D-18 | NFR-04 / TC-17 | The usability test needs five first-time users and is run manually (sheet: [`Usability_Test_TC17.md`](Usability_Test_TC17.md)). An automated test (`app_tc17_*`) checks that the task can be completed with the on-screen help alone. | A program cannot replace real testers; the automated test guards the help text. |
+| D-19 | FR-07 / UC-07 | *Deactivate* keeps the account record (`users.dat` gets an optional 6th field `inactive`; old files still load) and ends any open session of that user at once; *delete* removes the record after a yes/no confirmation. An administrator cannot deactivate or delete their own account, which also keeps the last active administrator safe. The menu has no *reactivate* option. | SRS FR-07 asks for create, deactivate and delete only. The self-removal rule prevents locking everybody out. |
+| D-20 | NFR-03 / TC-15 | Memory growth is within 10 % (+5.2 %) at 3 arrivals/min/lane, the highest load the signals can clear. At higher rates (up to 60) lane queues have no limit, so the backlog and memory grow with it (not a leak: ASan and Valgrind are clean). Details: [`Reliability_Report.md`](Reliability_Report.md). | The SRS gives no queue limit. **Open: the team decides to accept this reading or add a queue limit.** |
 
 ## Open items (planned, not yet delivered) – update before the final demo
 
 | Item | Requirement | Owner | Status |
 |---|---|---|---|
-| #12 Admin user management – deactivate and delete accounts | FR-07 | Manoj | Open. *Manage user accounts* offers create and list only. |
-| #18 24-hour reliability run with ASan/Valgrind | NFR-03 | Manoj | Open. AddressSanitizer/UBSan runs on the unit tests are clean (see Coverage_Report.md); the 86,400-tick run is not yet recorded. |
+| #12 Admin user management – deactivate and delete accounts | FR-07 | Manoj | Done. *Manage user accounts* offers create, list, deactivate and delete (see D-19). |
+| #18 24-hour reliability run with ASan/Valgrind | NFR-03 | Manoj | Done. 86,400 ticks pass under plain, ASan/UBSan and Valgrind; see [`Reliability_Report.md`](Reliability_Report.md) and D-20. |
 | TC-17 results | NFR-04 | Team | Run the sheet with five testers and fill in the results. |

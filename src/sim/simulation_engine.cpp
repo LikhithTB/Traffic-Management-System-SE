@@ -145,10 +145,12 @@ CongestionSnapshot SimulationEngine::raw() const {
             LaneSnapshot ls;
             ls.lane = static_cast<int>(i) + 1;
             ls.signal = signals_.stateOf(is.def.id, static_cast<int>(i));
-            ls.queueLength = is.lanes[i].queue.size();
-            for (const auto& v : is.lanes[i].queue) {
-                if (v.type == VehicleType::Emergency) ls.hasEmergency = true;
-            }
+            const auto& q = is.lanes[i].queue;
+            ls.queueLength = q.size();
+            // Emergency vehicles are always inserted in front of the normal ones (injectEmergency),
+            // so looking at the first vehicle is enough. Scanning the whole queue on every tick made
+            // a long run with a large backlog slower and slower (NFR-03, issue #18).
+            ls.hasEmergency = !q.empty() && q.front().type == VehicleType::Emergency;
             in.lanes.push_back(ls);
         }
         snap.push_back(in);

@@ -109,6 +109,52 @@ Result<void> AuthAdapter::createUser(const Session& session, const NewUser& user
     return Result<void>::success();
 }
 
+// Shared rules of "deactivate" and "delete": session valid, caller is Admin, target exists and is not
+// the caller. Failures are audited with their code.
+Result<void> AuthAdapter::checkUserRemoval(const Session& session, const std::string& username,
+                                           const char* action) {
+    if (isExpired(session)) return Result<void>::failure(ErrorCode::SessionExpired);
+    if (session.role != Role::Admin) {
+        (void)audit_.log(session.username, "DENIED:ManageUsers", errorCodeId(ErrorCode::PermissionDenied));
+        return Result<void>::failure(ErrorCode::PermissionDenied);
+    }
+    if (!users_.exists(username) || username == session.username) {
+        (void)audit_.log(session.username, action, errorCodeId(ErrorCode::OutOfRange));
+        return Result<void>::failure(ErrorCode::OutOfRange);
+    }
+    return Result<void>::success();
+}
+
+Result<void> AuthAdapter::deactivateUser(const Session& session, const std::string& username) {
+    const Result<void> ok = checkUserRemoval(session, username, "USER_DEACTIVATE");
+    if (!ok.ok()) return ok;
+    const auto r = users_.setActive(username, false);
+    if (!r.ok()) {
+        const ErrorCode e = mapUserError(r.error().code);
+        (void)audit_.log(session.username, "USER_DEACTIVATE", errorCodeId(e));
+        return Result<void>::failure(e);
+    }
+    auth_.revokeUser(username);                                  // logged-in sessions end now
+    ids_.erase(username);
+    (void)audit_.log(session.username, "USER_DEACTIVATE", "OK username=" + username);
+    return Result<void>::success();
+}
+
+Result<void> AuthAdapter::deleteUser(const Session& session, const std::string& username) {
+    const Result<void> ok = checkUserRemoval(session, username, "USER_DELETE");
+    if (!ok.ok()) return ok;
+    const auto r = users_.removeUser(username);
+    if (!r.ok()) {
+        const ErrorCode e = mapUserError(r.error().code);
+        (void)audit_.log(session.username, "USER_DELETE", errorCodeId(e));
+        return Result<void>::failure(e);
+    }
+    auth_.revokeUser(username);
+    ids_.erase(username);
+    (void)audit_.log(session.username, "USER_DELETE", "OK username=" + username);
+    return Result<void>::success();
+}
+
 void AuthAdapter::setSessionTimeoutMinutes(int minutes) {
     auth_.setSessionTimeout(static_cast<tms::SimClock::Tick>(minutes) * 60U);
 }

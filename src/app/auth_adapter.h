@@ -25,10 +25,17 @@ public:
     void touch(Session& session) override;
     Result<void> createUser(const Session& session, const NewUser& user) override;
 
+    // FR-07 (issue #12). Admin only. An admin cannot remove their own account; since only an active
+    // administrator can act, this also keeps the last active administrator safe. Both are audited.
+    Result<void> deactivateUser(const Session& session, const std::string& username);
+    Result<void> deleteUser(const Session& session, const std::string& username);
+
     std::vector<std::string> listUsers() const { return users_.usernames(); }
+    bool isActive(const std::string& username) const { return users_.isActive(username); }
     void setSessionTimeoutMinutes(int minutes);                 // FR-05: 1..60
 
 private:
+    Result<void> checkUserRemoval(const Session& session, const std::string& username, const char* action);
     void sync() const;                                          // clock := machine clock
 
     tms::AuthService& auth_;

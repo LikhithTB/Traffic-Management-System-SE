@@ -559,13 +559,17 @@ void Application::configureSystem(const Session& s) {
 
 void Application::manageUsers(const Session& s) {
     while (true) {
-        out_ << "\nUSER ACCOUNTS\n  1) Create account  2) List accounts  0) Back\n";
-        const int c = chooseOption(0, 2, help::Screen::Users);
+        out_ << "\nUSER ACCOUNTS\n  1) Create account  2) List accounts  3) Deactivate account"
+             << "  4) Delete account  0) Back\n";
+        const int c = chooseOption(0, 4, help::Screen::Users);
         if (c <= 0) return;
         if (c == 1) {
             createUserDialog(s);
+        } else if (c == 2) {
+            for (const auto& u : adapter_.listUsers())
+                out_ << "  " << u << (adapter_.isActive(u) ? "" : "  (deactivated)") << "\n";
         } else {
-            for (const auto& u : adapter_.listUsers()) out_ << "  " << u << "\n";
+            removeUserDialog(s, c == 4);
         }
     }
 }
@@ -590,4 +594,20 @@ void Application::createUserDialog(const Session& s) {
         return;
     }
     out_ << "Account " << nu.username << " created.\n";
+}
+
+void Application::removeUserDialog(const Session& s, bool permanent) {
+    const Result<std::string> name = validator::readText(in_, out_, "Username of the account", 1, 256);
+    if (!name.ok()) return;
+    if (permanent) {                                            // deleting cannot be undone: ask first
+        const Result<long long> sure =
+            validator::readInteger(in_, out_, "Delete " + *name.value + " permanently (1 = yes, 0 = no)", 0, 1);
+        if (!sure.ok() || *sure.value != 1) { out_ << "Nothing was changed.\n"; return; }
+    }
+    const Result<void> r = permanent ? adapter_.deleteUser(s, *name.value) : adapter_.deactivateUser(s, *name.value);
+    if (!r.ok()) {
+        out_ << "[" << errorCodeId(r.error) << "] Not done: the account must exist and must not be your own.\n";
+        return;
+    }
+    out_ << "Account " << *name.value << (permanent ? " deleted.\n" : " deactivated.\n");
 }

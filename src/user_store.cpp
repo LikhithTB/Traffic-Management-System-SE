@@ -71,12 +71,13 @@ bool parseIterations(const std::string& text, unsigned long& iterations) {
 // One line of the user file: username|role|saltHex|hashHex|iterations. False if malformed.
 bool parseUserLine(const std::string& line, User& out) {
   const auto f = split(line, '|');
-  if (f.size() != 5 || !validUsername(f[0])) return false;
+  if ((f.size() != 5 && f.size() != 6) || !validUsername(f[0])) return false;
+  if (f.size() == 6 && f[5] != "inactive") return false;
   const auto role = roleFromString(f[1]);
   if (!role.ok() || !fromHex(f[2]).ok() || !fromHex(f[3]).ok()) return false;
   unsigned long iterations = 0;
   if (!parseIterations(f[4], iterations)) return false;
-  out = User{f[0], role.value(), f[2], f[3], static_cast<unsigned>(iterations)};
+  out = User{f[0], role.value(), f[2], f[3], static_cast<unsigned>(iterations), f.size() == 5};
   return true;
 }
 
@@ -107,7 +108,7 @@ Result<void> UserStore::save() const {
   for (const auto& kv : users_) {
     const User& u = kv.second;
     lines.push_back(u.username + "|" + roleToString(u.role) + "|" + u.saltHex + "|" + u.hashHex + "|" +
-                    std::to_string(u.iterations));
+                    std::to_string(u.iterations) + (u.active ? "" : "|inactive"));
   }
   return file_.writeLines(lines);
 }
@@ -143,6 +144,21 @@ Result<void> UserStore::removeUser(const std::string& username) {
   return saved;
 }
 
+Result<void> UserStore::setActive(const std::string& username, bool active) {
+  auto it = users_.find(username);
+  if (it == users_.end()) return Result<void>::Err(ErrorCode::NotFound, "no such user");
+  const bool before = it->second.active;
+  it->second.active = active;
+  auto saved = save();
+  if (!saved.ok()) it->second.active = before;  // roll back so memory matches disk
+  return saved;
+}
+
+bool UserStore::isActive(const std::string& username) const {
+  auto it = users_.find(username);
+  return it != users_.end() && it->second.active;
+}
+
 Result<Role> UserStore::authenticate(const std::string& username, const std::string& password) const {
   auto it = users_.find(username);
   if (it == users_.end()) {
@@ -151,7 +167,8 @@ Result<Role> UserStore::authenticate(const std::string& username, const std::str
     return Result<Role>::Err(ErrorCode::AuthFailed, "invalid username or password");
   }
   const User& u = it->second;
-  if (!verifyPassword(password, u.saltHex, u.hashHex, u.iterations))
+  // A deactivated account gets the same answer as a wrong password (nothing is revealed).
+  if (!verifyPassword(password, u.saltHex, u.hashHex, u.iterations) || !u.active)
     return Result<Role>::Err(ErrorCode::AuthFailed, "invalid username or password");
   return Result<Role>::Ok(u.role);
 }
