@@ -16,3 +16,5 @@ reports/
 tms_tests
 tms_tests.exe
 test_audit_*.log
+build_cov/
+build_rel/

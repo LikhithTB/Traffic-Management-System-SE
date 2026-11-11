@@ -32,6 +32,8 @@ class AuthService {
   Result<Session> login(const std::string& username, const std::string& password);
   Result<Session> validateSession(std::uint64_t sessionId);  // refreshes idle timer on success
   void logout(std::uint64_t sessionId);
+  // FR-07: ends every session of a deactivated/deleted user and forgets its failed-login state.
+  void revokeUser(const std::string& username);
 
   // Audit trail (SEC-07): LOGIN_OK, LOGIN_FAIL, ACCOUNT_LOCKED, LOGIN_BLOCKED, SESSION_EXPIRED, LOGOUT.
   // Optional; passwords are never written to it.
@@ -51,6 +53,10 @@ class AuthService {
   };
 
   void audit(const std::string& user, const std::string& action, const std::string& result) const;
+  Result<Session> rejectUnknown(const std::string& username, const std::string& password);
+  bool lockActive(const std::string& username, Attempts& att, SimClock::Tick now);
+  void recordFailure(const std::string& username, Attempts& att, SimClock::Tick now);
+  Result<Session> openSession(const std::string& username, Role role, SimClock::Tick now);
 
   ::IAuditLogger* audit_ = nullptr;
   const UserStore& users_;
