@@ -5,7 +5,7 @@
 
 enum class ErrorCode {
     Ok,
-    AuthInvalid,       // E-AUTH-001 wrong username or password
+    // E-AUTH-001 wrong username or password
     AuthLocked,        // E-AUTH-002 account locked (3 failures, 60 s)
     SessionExpired,    // E-AUTH-003 inactivity timeout
     PermissionDenied,  // E-AUTH-004 role lacks permission
